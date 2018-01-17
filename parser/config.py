@@ -1,0 +1,3 @@
+PIKABU_LOGIN="u2122293"
+PIKABU_EMAIL="u2122293@mvrht.net"
+PIKABU_PASSWORD="areyouserious?"
