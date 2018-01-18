@@ -1,12 +1,16 @@
 import os
 from time import sleep
 from datetime import datetime
+import locale
 
 from selenium import webdriver  
 from selenium.webdriver.common.keys import Keys  
 from selenium.webdriver.chrome.options import Options
 
 from config import PIKABU_LOGIN, PIKABU_PASSWORD
+
+
+locale.setlocale(locale.LC_TIME, 'ru_RU.UTF-8')
 
 
 class PikabuParser:
@@ -52,19 +56,43 @@ class PikabuParser:
 
 class Story:
 	tags = {}
-	def __init__(pictures = {}, text = {}, tags = {}, author = None, post_time = None):
+	def __init__(link, pictures = {}, text = {}, tags = {}, author = None, post_datetime = None):
 		pass
 
 	@staticmethod
 	def parse_stories(stories):
 		for story in stories:
 			tags = Story().parse_tags(story)
-			print(tags)
+			link, title = Story().parse_link(story)
+			author = Story().parse_author(story)
+			post_datetime = Story().parse_datetime(story)
 
 
 	@staticmethod
 	def parse_tags(story):
 		tags = story.find_elements_by_class_name("story__tag")
 		
-		return set(map(lambda tag: tag.text, tags))
+		return {tag.text for tag in tags}
 
+	@staticmethod
+	def parse_link(story):
+		link = story.find_element_by_class_name("story__title-link")
+		href = link.get_attribute('href')
+
+		return (href, link.text)
+
+	@staticmethod
+	def parse_author(story):
+		author = story.find_element_by_class_name("story__author")
+
+		return author
+
+	@staticmethod
+	def parse_datetime(story):
+		post_datetime = story.find_element_by_class_name("story__date")
+		humanized_datetime = post_datetime.get_attribute('title')
+		pdt = datetime.strptime(humanized_datetime, '%d %B %Y в %H:%M')
+		print(humanized_datetime)
+		print(pdt, end='\n\n')
+
+		return post_datetime

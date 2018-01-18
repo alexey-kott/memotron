@@ -1,4 +1,4 @@
-#!/home/alexkott/Documents/memotronbot/venv/bin/python
+#!/home/alexkott/Documents/memotron/venv/bin/python
 
 import sys
 import getopt
