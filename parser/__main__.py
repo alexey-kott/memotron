@@ -1,3 +1,3 @@
 from pikabu import PikabuParser
 
-PikabuParser.start()
+PikabuParser().start()
