@@ -56,7 +56,7 @@ class PikabuParser:
 
 class Story:
 	tags = {}
-	def __init__(link, pictures = {}, text = {}, tags = {}, author = None, post_datetime = None):
+	def __init__(link, pictures = [], text = '', tags = {}, author = None, post_datetime = None):
 		pass
 
 	@staticmethod
@@ -66,6 +66,7 @@ class Story:
 			link, title = Story().parse_link(story)
 			author = Story().parse_author(story)
 			post_datetime = Story().parse_datetime(story)
+			pictures = Story().parse_pictures(story)
 
 
 	@staticmethod
@@ -89,10 +90,32 @@ class Story:
 
 	@staticmethod
 	def parse_datetime(story):
+		genitive = {
+			'января': 'январь',
+			'февраля': 'февраль',
+			'марта': 'март',
+			'апреля': 'апрель',
+			'мая': 'май',
+			'июня': 'июнь',
+			'июля': 'июль',
+			'августа': 'август',
+			'сентября': 'сентябрь',
+			'октября': 'октябрь',
+			'ноября': 'ноябрь',
+			'декабря': 'декабрь'
+		}
+
 		post_datetime = story.find_element_by_class_name("story__date")
 		humanized_datetime = post_datetime.get_attribute('title')
+		for month in genitive:
+			humanized_datetime = humanized_datetime.replace(month, genitive[month])
 		pdt = datetime.strptime(humanized_datetime, '%d %B %Y в %H:%M')
-		print(humanized_datetime)
-		print(pdt, end='\n\n')
 
 		return post_datetime
+
+	@staticmethod
+	def parse_pictures(story):
+		image_blocks = story.find_elements_by_class_name("b-story-block_type_image")
+		# images = story.find_elements_by_tag_name("img")
+		for image in image_blocks:
+			print(image.get_attribute('src'))
