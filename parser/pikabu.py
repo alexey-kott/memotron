@@ -33,9 +33,9 @@ class PikabuParser:
 		# 	body.send_keys(Keys.END)
 		# 	sleep(1)
 
-		# page_source = driver.page_source
-		# with open("./parser/page_source.html", "w") as file:
-		# 	file.write(page_source)
+		page_source = self.driver.page_source
+		with open("./parser/page_source.html", "w") as file:
+			file.write(page_source)
 
 		stories = Story().parse_stories(self.driver.find_elements_by_class_name("story"))
 
@@ -63,6 +63,8 @@ class Story:
 	def parse_stories(stories):
 		for story in stories:
 			tags = Story().parse_tags(story)
+			if 'реклама' in tags:
+				continue
 			link, title = Story().parse_link(story)
 			author = Story().parse_author(story)
 			post_datetime = Story().parse_datetime(story)
@@ -115,7 +117,10 @@ class Story:
 
 	@staticmethod
 	def parse_pictures(story):
-		image_blocks = story.find_elements_by_class_name("b-story-block_type_image")
+		# image_blocks = story.find_elements_by_xpath("//div")
+		print(story.source)
+		# image_blocks = story.find_elements_by_xpath(".//div[@class='b-story-block']")
+		# print(image_blocks)
 		# images = story.find_elements_by_tag_name("img")
-		for image in image_blocks:
-			print(image.get_attribute('src'))
+		# for image in images:
+		# 	print(image)
