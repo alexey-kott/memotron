@@ -29,9 +29,9 @@ class PikabuParser:
 
 		body = self.driver.find_element_by_tag_name("body")
 
-		# while not self.is_finish():
-		# 	body.send_keys(Keys.END)
-		# 	sleep(1)
+		while not self.is_finish():
+			body.send_keys(Keys.END)
+			sleep(1)
 
 		page_source = self.driver.page_source
 		with open("./parser/page_source.html", "w") as file:
@@ -39,10 +39,6 @@ class PikabuParser:
 
 		stories = Story().parse_stories(self.driver.find_elements_by_class_name("story"))
 
-		# for story in stories:
-			# print(story)
-
-		# sleep(999)
 		self.driver.close()
 		fnsh = datetime.now()
 		total = fnsh - strt 
@@ -56,19 +52,24 @@ class PikabuParser:
 
 class Story:
 	tags = {}
-	def __init__(link, pictures = [], text = '', tags = {}, author = None, post_datetime = None):
+	def __init__(link, img_links = [], text = '', tags = {}, author = None, post_datetime = None):
 		pass
 
 	@staticmethod
 	def parse_stories(stories):
 		for story in stories:
+			story_id = story.get_attribute('data-story-id')
+			if story_id == '_': # у блоков с рекламой этот атрибут равен '_'
+				continue
 			tags = Story().parse_tags(story)
 			if 'реклама' in tags:
 				continue
 			link, title = Story().parse_link(story)
 			author = Story().parse_author(story)
 			post_datetime = Story().parse_datetime(story)
-			pictures = Story().parse_pictures(story)
+			img_links = Story().parse_image_links(story)
+		
+		Story(link, img_links=img_links, tags=tags, author=author, post_datetime=post_datetime)
 
 
 	@staticmethod
@@ -116,11 +117,13 @@ class Story:
 		return post_datetime
 
 	@staticmethod
-	def parse_pictures(story):
-		# image_blocks = story.find_elements_by_xpath("//div")
-		print(story.source)
-		# image_blocks = story.find_elements_by_xpath(".//div[@class='b-story-block']")
-		# print(image_blocks)
-		# images = story.find_elements_by_tag_name("img")
-		# for image in images:
-		# 	print(image)
+	def parse_image_links(story):
+		links = []
+		image_blocks = story.find_elements_by_class_name("b-story-block_type_image")
+		for image_block in image_blocks:
+			img = image_block.find_element_by_tag_name('img')
+			link = img.get_attribute('src')
+			if link is None:
+				link = img.get_attribute('data-src')
+			links.append(link)
+		return links
