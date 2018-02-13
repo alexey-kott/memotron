@@ -50,11 +50,13 @@ def ping(m):
 def start(m):
 	u = User.cog(m)
 
+
 @bot.message_handler(content_types = ['text'])
 def reply(m):
 	u = User.cog(m)
 	print(m)
 	bot.send_message(prod_channel, m.text)
+	
 
 @bot.message_handler(content_types = ['photo'])
 def photo(m):
