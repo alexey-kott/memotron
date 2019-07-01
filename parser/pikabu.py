@@ -5,67 +5,31 @@ from datetime import datetime
 import locale
 from typing import List, Set, Tuple
 
+import attr
 from selenium import webdriver
 from selenium.common.exceptions import NoSuchElementException
 from selenium.webdriver.common.keys import Keys
 from selenium.webdriver.chrome.options import Options
+from sqlalchemy import create_engine, Column, Integer, Unicode
+from sqlalchemy.ext.declarative import declarative_base
 
 # from parser.config import PIKABU_LOGIN, PIKABU_PASSWORD
 
 locale.setlocale(locale.LC_TIME, 'ru_RU.UTF-8')
+Base = declarative_base()
 
 
-def get_webdriver_path() -> Path:
-    webdriver_paths = {
-        'Darwin': Path('./parser/chromedriver/chromedriver_mac'),
-        'Linux': Path('./parser/chromedriver/chromedriver_linux'),
-    }
+class Story(Base):
 
-    return webdriver_paths[platform.system()]
+    # def __init__(self, link, img_links=[], text='', tags: Set = set(), author=None, post_datetime=None):
+    #     print(link, img_links, text, tags, author, post_datetime)
+    #     pass
+    __tablename__ = 'story'
+    id = Column(Integer, primary_key=True)
+    name = Column(Unicode)
 
-
-class Parser:
-    def __init__(self):
-        chrome_options = Options()
-        # chrome_options.add_argument("--headless")
-        chrome_options.add_argument("--start-maximized")
-        self.driver = webdriver.Chrome(executable_path=get_webdriver_path(), chrome_options=chrome_options)
-
-
-class PikabuParser(Parser):
-    def run(self):
-        start = datetime.now()
-
-        self.driver.get("https://pikabu.ru/hot")
-
-        body = self.driver.find_element_by_tag_name("body")
-
-        while not self.is_finish():
-            with open("./parser/page_source.html", "w") as file:
-                file.write(self.driver.page_source)
-            try:
-                Story.parse_stories(self.driver.find_elements_by_class_name("story"))
-            except:
-                pass
-
-            body.send_keys(Keys.END)
-            sleep(1)
-
-        self.driver.close()
-        finish = datetime.now()
-        total = finish - start
-        print(total.total_seconds())
-
-    def is_finish(self):
-        overflow = self.driver.find_elements_by_class_name("stories__overflow")
-        return len(overflow)
-
-
-class Story:
-    tags = {}
-
-    def __init__(self, link, img_links=[], text='', tags: Set = set(), author=None, post_datetime=None):
-        pass
+    def __init__(self, name):
+        self.name = name
 
     @staticmethod
     def parse_stories(story_items):
@@ -145,3 +109,52 @@ class Story:
                 link = img.get_attribute('data-src')
             links.append(link)
         return links
+
+engine = create_engine('sqlite:///memotron.db', echo=True)
+Base.metadata.create_all(engine)
+
+
+def get_webdriver_path() -> Path:
+    webdriver_paths = {
+        'Darwin': Path('./parser/chromedriver/chromedriver_mac'),
+        'Linux': Path('./parser/chromedriver/chromedriver_linux'),
+    }
+
+    return webdriver_paths[platform.system()]
+
+
+class Parser:
+    def __init__(self):
+        chrome_options = Options()
+        # chrome_options.add_argument("--headless")
+        chrome_options.add_argument("--start-maximized")
+        self.driver = webdriver.Chrome(executable_path=get_webdriver_path(), chrome_options=chrome_options)
+
+
+class PikabuParser(Parser):
+    def run(self):
+        start = datetime.now()
+
+        self.driver.get("https://pikabu.ru/hot")
+
+        body = self.driver.find_element_by_tag_name("body")
+
+        while not self.is_finish():
+            with open("./parser/page_source.html", "w") as file:
+                file.write(self.driver.page_source)
+            try:
+                Story.parse_stories(self.driver.find_elements_by_class_name("story"))
+            except:
+                pass
+
+            body.send_keys(Keys.END)
+            sleep(1)
+
+        self.driver.close()
+        finish = datetime.now()
+        total = finish - start
+        print(total.total_seconds())
+
+    def is_finish(self):
+        overflow = self.driver.find_elements_by_class_name("stories__overflow")
+        return len(overflow)
