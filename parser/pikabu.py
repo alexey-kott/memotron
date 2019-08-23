@@ -3,6 +3,8 @@ from pathlib import Path
 from time import sleep
 from datetime import datetime
 import locale
+from typing import Set
+
 from selenium import webdriver
 from selenium.common.exceptions import NoSuchElementException
 from selenium.webdriver.common.keys import Keys
@@ -42,10 +44,7 @@ class PikabuParser(Parser):
         while not self.is_finish():
             with open("./parser/page_source.html", "w") as file:
                 file.write(self.driver.page_source)
-            try:
-                Story.parse_stories(self.driver.find_elements_by_class_name("story"))
-            except NoSuchElementException:
-                pass
+            Story.parse_stories(self.driver.find_elements_by_class_name("story"))
 
             body.send_keys(Keys.END)
             sleep(1)
@@ -58,3 +57,12 @@ class PikabuParser(Parser):
     def is_finish(self):
         overflow = self.driver.find_elements_by_class_name("stories__overflow")
         return len(overflow)
+
+
+def post_stories(stories: Set[Story]):
+    for story in stories:
+        post_story(story)
+
+
+def post_story(story: Story):
+    pass

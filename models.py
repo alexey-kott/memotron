@@ -1,10 +1,13 @@
-from typing import List
+import json
+from typing import List, Optional, Tuple
 
-from peewee import *
-import datetime
+from peewee import SqliteDatabase, Model, TextField, DateTimeField, IntegerField, \
+    BooleanField, CompositeKey, DoesNotExist
+from datetime import datetime
 from time import sleep
 
-from selenium.common.exceptions import NoSuchElementException
+from selenium.common.exceptions import NoSuchElementException, StaleElementReferenceException
+from selenium.webdriver.remote.webelement import WebElement
 
 db = SqliteDatabase('db.sqlite3')
 
@@ -20,93 +23,118 @@ class BaseModel(Model):
 
 class Story(BaseModel):
     link = TextField(unique=True)
+    title = TextField()
     img_links = TextField(null=True)
     text = TextField(null=True)
+    tags = TextField(null=True)
     author = TextField()
-    post_date = DateTimeField()
+    post_datetime = DateTimeField(null=True)
+    published = BooleanField(default=False)
+    scheduled_datetime = DateTimeField(null=True, default=False)
+    accepted = BooleanField(null=True, default=None)
+    prod_message_id = IntegerField(null=True)
+    admin_message_id = IntegerField(null=True)
+
+    def __str__(self):
+        return f"{self.title} {self.link}"
+
+    @classmethod
+    def get_or_create(cls, **kwargs):
+        try:
+            return cls.get(cls.link == kwargs['link']), False
+        except DoesNotExist:
+            return cls.create(**kwargs), True
 
     @staticmethod
     def parse_stories(story_items):
         for story in story_items:
-            story_id = story.get_attribute('data-story-id')
-            if story_id == '_':  # у блоков с рекламой этот атрибут равен '_'
-                continue
-            tags = Story.parse_tags(story)
-            if 'реклама' in tags:
-                continue
-            link, title = Story.parse_link(story)
-            author = Story.parse_author(story)
-            post_datetime = Story.parse_datetime(story)
-            img_links = Story.parse_image_links(story)
+            try:
+                story, is_new_story = Story.parse_story(story)
+                print(story)
 
-            Story(link, img_links=img_links, tags=tags, author=author, post_datetime=post_datetime)
+            except StaleElementReferenceException:
+                continue
+            except Exception as e:
+                print(e)
+                pass
 
     @staticmethod
-    def parse_tags(story):
-        tags = story.find_elements_by_class_name("story__tag")
+    def parse_story(story_element) -> Tuple:
+        story_id = story_element.get_attribute('data-story-id')
+        if story_id == '_':  # у блоков с рекламой этот атрибут равен '_'
+            return
+        tags = Story.parse_tags(story_element)
+        link, title = Story.parse_link(story_element)
+        author = Story.parse_author(story_element)
+        post_datetime = Story.parse_datetime(story_element)
+        img_links = Story.parse_image_links(story_element)
+        text = Story.parse_text(story_element)
+
+        if author == 'specials':  # это реклама или иной буллшит
+            return None, None
+        return Story.get_or_create(link=link,
+                                   title=title,
+                                   text=text,
+                                   tags=tags,
+                                   author=author,
+                                   img_links=img_links,
+                                   post_datetime=post_datetime)
+
+
+    @staticmethod
+    def parse_tags(story_element: WebElement):
+        tags = story_element.find_elements_by_class_name("tags__tag")
 
         return {tag.text for tag in tags}
 
     @staticmethod
-    def parse_link(story) -> Tuple:
+    def parse_link(story_element: WebElement) -> Tuple:
         with open('./parser/story.html', 'w') as file:
-            file.write(story.get_attribute('outerHTML'))
-        link = story.find_element_by_class_name("story__title-link")
+            file.write(story_element.get_attribute('outerHTML'))
+        link = story_element.find_element_by_class_name("story__title-link")
         href = link.get_attribute('href')
 
         return href, link.text
 
     @staticmethod
-    def parse_author(story):
+    def parse_author(story_element: WebElement):
         try:
-            author = story.find_element_by_class_name("story__author")
+            author = story_element.find_element_by_class_name("user__nick").text
         except NoSuchElementException:
             author = None
 
         return author
 
     @staticmethod
-    def parse_datetime(story):
-        genitive = {
-            'января': 'январь',
-            'февраля': 'февраль',
-            'марта': 'март',
-            'апреля': 'апрель',
-            'мая': 'май',
-            'июня': 'июнь',
-            'июля': 'июль',
-            'августа': 'август',
-            'сентября': 'сентябрь',
-            'октября': 'октябрь',
-            'ноября': 'ноябрь',
-            'декабря': 'декабрь'
-        }
+    def parse_datetime(story_element: WebElement) -> Optional[datetime]:
         try:
-            post_datetime = story.find_element_by_class_name("story__date")
-            humanized_datetime = post_datetime.get_attribute('title')
-            for month in genitive:
-                humanized_datetime = humanized_datetime.replace(month, genitive[month])
-            pdt = datetime.strptime(humanized_datetime, '%d %B %Y в %H:%M')
-        except NoSuchElementException:
-            post_datetime = None
+            story_datetime = story_element.find_element_by_class_name("story__datetime")
+            str_datetime = story_datetime.get_attribute('datetime')
 
-        return post_datetime
+            return datetime.fromisoformat(str_datetime)
+        except NoSuchElementException:
+            return None
 
     @staticmethod
-    def parse_image_links(story) -> List:
+    def parse_image_links(story_element: WebElement) -> List:
         links = []
-        image_blocks = story.find_elements_by_class_name("b-story-block_type_image")
+        image_blocks = story_element.find_elements_by_class_name("story-block_type_image")
         for image_block in image_blocks:
             img = image_block.find_element_by_tag_name('img')
             link = img.get_attribute('src')
             if link is None:
                 link = img.get_attribute('data-src')
             links.append(link)
-        return links
 
+        return json.dumps(links)
 
+    @staticmethod
+    def parse_text(story_element: WebElement) -> str:
+        text_items = []
+        for item in story_element.find_elements_by_class_name("story-block_type_text"):
+            text_items.append(item.text)
 
-
+        return "\n".join(text_items)
 
 
 # ==================================
@@ -131,7 +159,7 @@ class User(BaseModel):
             return User.select().where(User.user_id == uid(message)).get()
 
     def save(self, force_insert=False, only=None):
-        self.last_activity = datetime.datetime.utcnow()
+        self.last_activity = datetime.utcnow()
         super().save(force_insert, only)
 
     def set_state(self, state):
