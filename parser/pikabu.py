@@ -28,7 +28,7 @@ def get_webdriver_path() -> Path:
 class Parser:
     def __init__(self):
         chrome_options = Options()
-        # chrome_options.add_argument("--headless")
+        chrome_options.add_argument("--headless")
         chrome_options.add_argument("--start-maximized")
         self.driver = webdriver.Chrome(executable_path=get_webdriver_path(), chrome_options=chrome_options)
 
