@@ -1,15 +1,24 @@
 import json
+import logging
 from typing import List, Optional, Tuple
 
-from peewee import SqliteDatabase, Model, TextField, DateTimeField, IntegerField, \
-    BooleanField, CompositeKey, DoesNotExist
+from peewee import Model, TextField, DateTimeField, IntegerField, \
+    BooleanField, CompositeKey, DoesNotExist, PostgresqlDatabase
 from datetime import datetime
 from time import sleep
 
 from selenium.common.exceptions import NoSuchElementException, StaleElementReferenceException
 from selenium.webdriver.remote.webelement import WebElement
 
-db = SqliteDatabase('db.sqlite3')
+import config
+
+logger = logging.getLogger()
+logger.setLevel(logging.DEBUG)
+
+db = PostgresqlDatabase(config.DB_NAME,
+                        user=config.DB_USER,
+                        host=config.DB_HOST,
+                        port=config.DB_PORT, autorollback=True)
 
 sid = lambda m: m.chat.id  # лямбды для определения адреса ответа
 uid = lambda m: m.from_user.id
@@ -38,6 +47,9 @@ class Story(BaseModel):
     def __str__(self):
         return f"{self.title} {self.link}"
 
+    def __repr__(self):
+        return f"{self.title} {self.link}"
+
     @classmethod
     def get_or_create(cls, **kwargs):
         try:
@@ -47,10 +59,13 @@ class Story(BaseModel):
 
     @staticmethod
     def parse_stories(story_items):
-        for story in story_items:
+        for story_item in story_items:
             try:
-                story, is_new_story = Story.parse_story(story)
-                print(story)
+                story, is_new_story = Story.parse_story(story_item)
+                if not story:
+                    continue
+                print(story.id)
+                story.save()
 
             except StaleElementReferenceException:
                 continue
@@ -61,8 +76,8 @@ class Story(BaseModel):
     @staticmethod
     def parse_story(story_element) -> Tuple:
         story_id = story_element.get_attribute('data-story-id')
-        if story_id == '_':  # у блоков с рекламой этот атрибут равен '_'
-            return
+        # if story_id == '_':  # у блоков с рекламой этот атрибут равен '_'
+        #     return
         tags = Story.parse_tags(story_element)
         link, title = Story.parse_link(story_element)
         author = Story.parse_author(story_element)
@@ -78,8 +93,8 @@ class Story(BaseModel):
                                    tags=tags,
                                    author=author,
                                    img_links=img_links,
+                                   scheduled_datetime=None,
                                    post_datetime=post_datetime)
-
 
     @staticmethod
     def parse_tags(story_element: WebElement):
@@ -91,6 +106,9 @@ class Story(BaseModel):
     def parse_link(story_element: WebElement) -> Tuple:
         with open('./parser/story.html', 'w') as file:
             file.write(story_element.get_attribute('outerHTML'))
+        # if not story_element.find_elements_by_class_name("story__title-link"):
+        #     return
+
         link = story_element.find_element_by_class_name("story__title-link")
         href = link.get_attribute('href')
 
@@ -111,7 +129,9 @@ class Story(BaseModel):
             story_datetime = story_element.find_element_by_class_name("story__datetime")
             str_datetime = story_datetime.get_attribute('datetime')
 
-            return datetime.fromisoformat(str_datetime)
+            story_timestampz = datetime.fromisoformat(str_datetime)
+            story_timestamp = story_timestampz.replace(tzinfo=None)
+            return story_timestamp
         except NoSuchElementException:
             return None
 
@@ -123,7 +143,12 @@ class Story(BaseModel):
             img = image_block.find_element_by_tag_name('img')
             link = img.get_attribute('src')
             if link is None:
-                link = img.get_attribute('data-src')
+                link: str = img.get_attribute('data-src')
+
+            # TODO: check in future versions [3.11.19]
+            # aiogram can't send .webp as image
+            # if link.endswith('.webp'):
+            #     continue
             links.append(link)
 
         return json.dumps(links)

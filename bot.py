@@ -186,15 +186,15 @@ async def schedule_new_post(story: Story) -> None:
                                         reply_markup=keyboard)
         # print(bot_response)
     elif len(img_links) > 1:
-        medias = [InputMediaPhoto(url) for url in img_links]
+        media = [InputMediaPhoto(url) for url in img_links]
 
         # text may be added to the message only by
         # adding it to the first item in MediaGroup
         # medias[0].caption = story.title
-        if len(medias) > 10:
+        if len(media) > 10:
             return
 
-        response = await bot.send_media_group(ADMIN_CHANNEL, medias)
+        response = await bot.send_media_group(ADMIN_CHANNEL, media)
         response = await bot.send_message(ADMIN_CHANNEL, story.title,
                                           reply_to_message_id=response[0].message_id,
                                           reply_markup=keyboard)
