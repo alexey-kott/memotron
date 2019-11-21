@@ -3,16 +3,21 @@ import json
 import logging
 from asyncio import sleep
 from datetime import datetime, timedelta
+from pathlib import Path
+from typing import Collection
 
 from aiogram import Bot, Dispatcher
 from aiogram.types import Message, ContentType, InlineKeyboardMarkup, \
-    InlineKeyboardButton, CallbackQuery, InputMediaPhoto
+    InlineKeyboardButton, CallbackQuery, InputMediaPhoto, InputFile, InputMedia
 from aiogram.utils import executor
 from aiogram.utils.exceptions import ToMuchMessages
-from aiohttp import BasicAuth
+from aiohttp import BasicAuth, ClientSession
 import requests
 from peewee import fn
 from requests.exceptions import ConnectionError
+from yarl import URL
+import aiofiles
+from PIL import Image
 
 from config import BOT_TOKEN, PROXY_HOST, PROXY_PASS, PROXY_PORT, PROXY_USERNAME, ADMIN_CHANNEL, MEMOTRON_CHANNEL
 from models import Story
@@ -260,10 +265,70 @@ async def update_keyboards() -> None:
         await sleep(1)
 
 
+async def download_file(file_link: str) -> Path:
+    tmp_dir = Path('/tmp')
+    file_url = URL(file_link)
+    file_path = tmp_dir / file_url.name
+    async with ClientSession() as session:
+        async with session.get(file_url) as response:
+            async with aiofiles.open(file_path, 'wb') as file:
+                await file.write(await response.read())
+
+                return file_path
+
+
+def webp_to_png(webp_file_path: Path) -> Path:
+    img = Image.open(webp_file_path)
+    img.convert('RGBA')
+    png_file_path = webp_file_path.parent / (webp_file_path.stem + '.png')
+    img.save(png_file_path, 'png')
+
+    return png_file_path
+
+
+async def prepare_media(links: Collection[str]):
+    media = []
+    for link in links:
+        file_url = URL(link)
+        file_name = Path(file_url.name)
+        if file_name.suffix == '.webp':
+            webp_file_path = await download_file(link)
+            png_file_path = webp_to_png(webp_file_path)
+
+            # async with aiofiles.open(png_file_path, 'rb') as file:
+            # with open(png_file_path, 'rb') as file:
+            file = open(png_file_path, 'rb')
+            input_media = InputMediaPhoto(file)
+            media.append(input_media)
+
+            # webp_file_path.unlink()
+            # png_file_path.unlink()
+        else:
+            media.append(link)
+
+    return media
+
+
+async def send_webp() -> None:
+    story = Story.get(Story.id == 7)
+    # story = Story.get(Story.id == 22)
+    img_links = json.loads(story.img_links)
+
+    media = await prepare_media(img_links)
+    # medias = [InputMediaPhoto(url) for url in img_links]
+
+    # with open('/tmp/1573458712191115630.png', 'rb') as file:
+    #     await bot.send_photo(MEMOTRON_CHANNEL, file)
+
+    bot_response = await bot.send_media_group(MEMOTRON_CHANNEL, media)
+    print(bot_response)
+
+
 if __name__ == "__main__":
     init()
     loop = asyncio.get_event_loop()
-    asyncio.ensure_future(watch_new_stories())
-    asyncio.ensure_future(schedule_trigger())
-    asyncio.ensure_future(update_keyboards())
+    asyncio.ensure_future(send_webp())
+    # asyncio.ensure_future(watch_new_stories())
+    # asyncio.ensure_future(schedule_trigger())
+    # asyncio.ensure_future(update_keyboards())
     executor.start_polling(dp)
