@@ -1,5 +1,5 @@
 import platform
-from logging import getLogger
+import logging
 from pathlib import Path
 from time import sleep
 from datetime import datetime
@@ -17,7 +17,8 @@ from selenium.webdriver.remote.webelement import WebElement
 from models import Story
 
 locale.setlocale(locale.LC_TIME, 'ru_RU.UTF-8')
-logger = getLogger()
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger()
 
 
 def get_webdriver_path() -> Path:
