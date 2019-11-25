@@ -3,8 +3,8 @@ import logging
 from typing import List, Optional, Tuple
 
 from peewee import Model, TextField, DateTimeField, IntegerField, \
-    BooleanField, CompositeKey, DoesNotExist, PostgresqlDatabase
-from datetime import datetime
+    BooleanField, CompositeKey, DoesNotExist, PostgresqlDatabase, fn
+from datetime import datetime, timedelta
 from time import sleep
 
 from selenium.common.exceptions import NoSuchElementException, StaleElementReferenceException
@@ -20,9 +20,7 @@ db = PostgresqlDatabase(config.DB_NAME,
                         host=config.DB_HOST,
                         port=config.DB_PORT, autorollback=True)
 
-sid = lambda m: m.chat.id  # лямбды для определения адреса ответа
-uid = lambda m: m.from_user.id
-cid = lambda c: c.message.chat.id
+STORY_INTERVAL = 1  # minutes
 
 
 class BaseModel(Model):
@@ -34,11 +32,11 @@ class Story(BaseModel):
     link = TextField(unique=True)
     title = TextField()
     img_links = TextField(null=True)
+    caption = TextField(null=True)
     text = TextField(null=True)
     tags = TextField(null=True)
     author = TextField()
     post_datetime = DateTimeField(null=True)
-    published = BooleanField(default=False)
     scheduled_datetime = DateTimeField(null=True, default=False)
     accepted = BooleanField(null=True, default=None)
     prod_message_id = IntegerField(null=True)
@@ -56,6 +54,34 @@ class Story(BaseModel):
             return cls.get(cls.link == kwargs['link']), False
         except DoesNotExist:
             return cls.create(**kwargs), True
+
+    @classmethod
+    def get_last_scheduled_datetime(cls) -> datetime:
+        last_scheduled_post = Story.select(fn.Max(Story.scheduled_datetime)).scalar()
+
+        if last_scheduled_post:
+            return last_scheduled_post
+        else:
+            return datetime.now()
+
+    @classmethod
+    def get_available_time(cls):
+        last_scheduled_post = Story.get_last_scheduled_datetime()
+        if last_scheduled_post < datetime.now():
+            nearest_available_time = datetime.now() + timedelta(minutes=STORY_INTERVAL)
+        else:
+            nearest_available_time = last_scheduled_post + timedelta(minutes=STORY_INTERVAL)
+        nearest_available_time = nearest_available_time.replace(second=0, microsecond=0)
+
+        return nearest_available_time
+
+    def schedule(self, ):
+        """В расписание посто попадает не точно в то время, которое было указано на кнопке,
+        а через 20 минут после последнего запланированного поста. Расхождение с временем
+        на кнопке может достигать нескольких минут"""
+        scheduled_datetime = Story.get_available_time()
+        self.scheduled_datetime = scheduled_datetime
+        self.save()
 
     @staticmethod
     def parse_stories(story_items):
@@ -200,7 +226,6 @@ class Post(BaseModel):
     datetime = DateTimeField()
     author = IntegerField()
     poster = IntegerField()
-    published = BooleanField(default=False)
     perceptual_hash = TextField(
         null=True)  # perceptual hash, нужен для детекта картинок, которые уже постились: https://habrahabr.ru/post/120562/
 
