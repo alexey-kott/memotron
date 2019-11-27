@@ -181,7 +181,9 @@ async def schedule_trigger():
 async def update_keyboards() -> None:
     """Updates message keyboards in admin channel"""
     while True:
-        for story in Story.select().where(Story.scheduled_datetime.is_null()):
+        for story in Story.select().\
+                           where(Story.scheduled_datetime.is_null()).\
+                           order_by(Story.post_datetime.desc()):
             keyboard = get_story_keyboard(story)
             try:
                 await bot.edit_message_reply_markup(ADMIN_CHANNEL,
@@ -189,9 +191,7 @@ async def update_keyboards() -> None:
                                                     reply_markup=keyboard)
             except (MessageToEditNotFound, MessageNotModified) as e:
                 logger.debug(e)
-
-            await sleep(1)
-        await sleep(1)
+            await sleep(3)
 
 
 if __name__ == "__main__":
