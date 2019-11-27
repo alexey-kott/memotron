@@ -35,6 +35,7 @@ class Parser:
         chrome_options = Options()
         chrome_options.add_argument("--headless")
         chrome_options.add_argument("--start-maximized")
+        chrome_options.add_argument(f'--proxy-server=178.215.190.240:58539')
         self.driver = webdriver.Chrome(executable_path=get_webdriver_path(), chrome_options=chrome_options)
         logger.info('Chrome driver initialized')
 
