@@ -45,7 +45,6 @@ class PikabuParser:
         if proxy:
             options.add_argument(f'--proxy-server={proxy.host}:{proxy.port}')
         self.driver = Chrome(executable_path=get_webdriver_path(), options=options)
-        logger.info('Chrome driver initialized')
 
     async def prepare_proxy(self) -> None:
         broker = Broker(self.proxies)
@@ -81,6 +80,7 @@ class PikabuParser:
                 proxy = await self.proxies.get()
                 logger.info(f'Get proxy: {proxy}')
             self.init_driver(proxy)
+            logger.info('Chrome driver initialized')
             logger.info(f'New WebDriver instance: {datetime.now()}')
             self.start_parsing()
             logger.info(f'WebDriver instance stop: {datetime.now()}')
@@ -99,8 +99,11 @@ class PikabuParser:
     def check_availability(self) -> bool:
         self.init_driver()
         self.driver.get(self.PIKABU_URL)
-        if self.driver.title.find('403') != -1:
-            return False
-        if self.driver.find_element_by_tag_name('body').get_attribute('innerText') == '':  # if empty body
-            return False
-        return True
+        try:
+            if self.driver.title.find('403') != -1:
+                return False
+            if self.driver.find_element_by_tag_name('body').get_attribute('innerText') == '':  # if empty body
+                return False
+            return True
+        finally:
+            self.driver.close()

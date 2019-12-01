@@ -20,7 +20,7 @@ db = PostgresqlDatabase(config.DB_NAME,
                         host=config.DB_HOST,
                         port=config.DB_PORT, autorollback=True)
 
-STORY_INTERVAL = 1  # minutes
+STORY_INTERVAL = 15  # minutes
 
 
 class BaseModel(Model):
