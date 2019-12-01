@@ -199,5 +199,5 @@ if __name__ == "__main__":
     loop = asyncio.get_event_loop()
     asyncio.ensure_future(watch_new_stories())
     asyncio.ensure_future(schedule_trigger())
-    asyncio.ensure_future(update_keyboards())
+    # asyncio.ensure_future(update_keyboards())
     executor.start_polling(dp)

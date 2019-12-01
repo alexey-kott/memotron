@@ -85,12 +85,13 @@ class Story(BaseModel):
 
     @staticmethod
     def parse_stories(story_items):
-        for story_item in story_items:
+        counter = 0
+        for counter, story_item in enumerate(story_items):
             try:
                 story, is_new_story = Story.parse_story(story_item)
                 if not story:
                     continue
-                print(story.id)
+                print(story.id, story)
                 story.save()
 
             except StaleElementReferenceException:
@@ -98,6 +99,7 @@ class Story(BaseModel):
             except Exception as e:
                 print(e)
                 pass
+        return counter
 
     @staticmethod
     def parse_story(story_element) -> Tuple:
@@ -205,9 +207,9 @@ class User(BaseModel):
         last_name = message.from_user.last_name
         try:
             with db.atomic():
-                return User.create(user_id=uid(message), username=username, first_name=first_name, last_name=last_name)
+                return User.create(user_id=message.from_user.id, username=username, first_name=first_name, last_name=last_name)
         except Exception as e:
-            return User.select().where(User.user_id == uid(message)).get()
+            return User.select().where(User.user_id == message.from_user.id).get()
 
     def save(self, force_insert=False, only=None):
         self.last_activity = datetime.utcnow()
