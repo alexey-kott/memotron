@@ -76,7 +76,7 @@ class PikabuParser:
 
         while True:
             proxy = None
-            if self.check_availability():
+            if not self.check_availability():
                 proxy = await self.proxies.get()
                 logger.info(f'Get proxy: {proxy}')
             self.init_driver(proxy)
