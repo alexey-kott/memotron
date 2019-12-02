@@ -143,7 +143,10 @@ async def watch_new_stories() -> None:
                                                    Story.text == "")
 
         for story in unpublished_stories:
-            await schedule_new_post(story)
+            try:
+                await schedule_new_post(story)
+            except Exception as e:
+                logger.exception(e)
             await sleep(1)
         await sleep(1)
 
