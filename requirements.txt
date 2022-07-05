@@ -16,7 +16,7 @@ peewee==3.11.2
 Pillow==6.2.1
 proxybroker==0.3.2
 psycopg2-binary==2.8.4
-pycares==3.0.0
+pycares==4.2.0
 pycparser==2.19
 pytz==2019.3
 requests==2.22.0
